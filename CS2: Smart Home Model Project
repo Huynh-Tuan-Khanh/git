@@ -1,0 +1,149 @@
+from tkinter import *
+from tkinter.messagebox import *
+import serial as sr
+import tkinter.ttk as ttk
+import threading
+import time
+
+root = Tk()
+root.title("Login window")
+root.geometry("600x600+100+100")
+
+acc = {"baokhanh": "123456"}
+count = 0
+
+def login():
+    global count
+    uid = En1.get()
+    pw = En2.get()
+    if uid not in acc:
+        showwarning(title="Warning", message="User name does not exist")
+    else:
+        if pw == acc[uid]:
+            a = showinfo(title="Welcome back", message="Welcome Master")
+            if a == "ok":  # 'ok' should be lowercase
+                root.destroy()
+                mainwindow()
+        else:
+            count += 1
+            showwarning(title="Warning", message=f"You have entered the wrong password {count} times")
+
+def mainwindow():
+    window = Tk()
+    window.title("Smart Home")
+    window.geometry("1920x750+0+0")
+    window.configure(background='white')
+
+    try:
+        arduino = sr.Serial("COM3", 115200)
+    except sr.SerialException:
+        showerror("Error", "Could not open COM3. Make sure the Arduino is connected and the port is correct.")
+        window.destroy()  # Destroy the window if Arduino connection fails
+        return
+
+    def led1():
+        if ledbutton1["text"] == "Turn On Lobby Light":
+            ledbutton1["text"] = 'Turn Off Lobby Light'
+            ledbutton1["bg"] = "green"
+            arduino.write(bytes("B1" + "\r", 'utf-8'))
+        else:
+            ledbutton1["text"] = 'Turn On Lobby Light'
+            ledbutton1["bg"] = "red"
+            arduino.write(bytes("T1" + "\r", 'utf-8'))
+
+    def servo1():
+        if servobutton1['text'] == "Open Front Door":
+            servobutton1['text'] = 'Close Front Door'
+            servobutton1["bg"] = "green"
+            arduino.write(bytes("M1" + "\r", 'utf-8'))
+        else:
+            servobutton1['text'] = "Open Front Door"
+            servobutton1['bg'] = "red"
+            arduino.write(bytes('D1' + '\r', 'utf-8'))
+
+    def servo2():
+        if servobutton2['text'] == "Open Bedroom Door":
+            servobutton2['text'] = 'Close Bedroom Door'
+            servobutton2['bg'] = 'green'
+            arduino.write(bytes("M2" + "\r", 'utf-8'))
+        else:
+            servobutton2['text'] = "Open Bedroom Door"
+            servobutton2['bg'] = 'red'
+            arduino.write(bytes('D2' + '\r', 'utf-8'))
+
+    def led2():
+        if ledbutton2['text'] == "Turn On Bedroom Light":
+            ledbutton2['text'] = 'Turn Off Bedroom Light'
+            ledbutton2['bg'] = 'green'
+            arduino.write(bytes("B2" + "\r", 'utf-8'))
+        else:
+            ledbutton2['text'] = "Turn On Bedroom Light"
+            ledbutton2['bg'] = 'red'
+            arduino.write(bytes('T2' + '\r', 'utf-8'))
+
+    def fan():
+        if fanbutton['text'] == 'Turn On Fan':
+            fanbutton['text'] = 'Turn Off Fan'
+            fanbutton['bg'] = "green"
+            arduino.write(bytes('Q' + '\r', 'utf-8'))
+        else:
+            fanbutton['text'] = "Turn On Fan"
+            fanbutton['bg'] = 'red'
+            arduino.write(bytes('N' + '\r', 'utf-8'))
+
+    def update_temperature():
+        while True:
+            if arduino.in_waiting > 0:
+                data = arduino.readline().decode('utf-8').strip()
+                if data.startswith("Temperature:"):
+                    temp = data.split(":")[1].strip().replace(" C", "")
+                    temperature_label.config(text=f"Temperature: {temp}°C")
+            time.sleep(1)
+
+    # Load the images for the buttons
+    photo = PhotoImage(file=r"C:\Users\ducba\OneDrive\Desktop\nha.png")
+
+    # Create and place buttons in the Tkinter window
+    ledbutton1 = Button(window, text="Turn On Lobby Light", font='times 13 bold', bg="red", width=50, height=6, command=led1)
+    ledbutton1.grid(row=0, column=0)
+
+    servobutton1 = Button(window, text="Open Front Door", font='times 13 bold', bg="red", width=50, height=6, command=servo1)
+    servobutton1.grid(row=3, column=0)
+
+    servobutton2 = Button(window, text="Open Bedroom Door", font='times 13 bold', bg="red", width=50, height=6, command=servo2)
+    servobutton2.grid(row=2, column=0)
+
+    ledbutton2 = Button(window, text="Turn On Bedroom Light", font='times 13 bold', bg="red", width=50, height=6, command=led2)
+    ledbutton2.grid(row=1, column=0)
+
+    fanbutton = Button(window, text="Turn On Fan", font='times 13 bold', bg='red', width=50, height=6, command=fan)
+    fanbutton.grid(row=4, column=0)
+
+    temperature_label = Label(window, text="Temperature: --°C", font='times 13 bold', width=50, height=6)
+    temperature_label.grid(row=5, column=0)
+
+    image_label = Label(window, image=photo)
+    image_label.image = photo  # Keep a reference to the image to prevent garbage collection
+    image_label.grid(row=0, column=1, rowspan=6, padx=10, pady=10)
+
+    # Start a thread to update the temperature label
+    temp_thread = threading.Thread(target=update_temperature)
+    temp_thread.daemon = True
+    temp_thread.start()
+
+    window.mainloop()
+
+lb1 = Label(text="User name", font="times 24")
+lb2 = Label(text="Password", font="times 24")
+lb1.place(x=50, y=100)
+lb2.place(x=50, y=160)
+
+En1 = Entry(font="times 24")
+En2 = Entry(font="times 24", show='*')  # Hides the password
+En1.place(x=200, y=100)
+En2.place(x=200, y=160)
+
+b1 = Button(text="Login", font="times 24", command=login)
+b1.place(x=300, y=250)
+
+root.mainloop()
